@@ -18,7 +18,7 @@ parser.add_argument('--end', '-e', default=60, type=int,
 parser.add_argument('--height', '-y', default=200, type=int,
                     help='height of the output image')
 parser.add_argument('--width',  '-x', default=200, type=int,
-                    help='height of the output image')
+                    help='width of the output image')
 parser.add_argument('--frequency-count', '-f', default=-1, type=int,
                     help='force a frequency count and linear interpolate the image')
 parser.add_argument('--upper-frequency', '-u', default=20000, type=int,

@@ -22,9 +22,9 @@ parser.add_argument('--width',  '-x', default=200, type=int,
 parser.add_argument('--frequency-count', '-f', default=-1, type=int,
                     help='force a frequency count and linear interpolate the image')
 parser.add_argument('--upper-frequency', '-u', default=20000, type=int,
-                    help='upper frequency threshold for image')
+                    help='upper frequency threshold for image (default 20000Hz)')
 parser.add_argument('--lower-frequency', '-l', default=20, type=int,
-                    help='lower frequency threshold for image')
+                    help='lower frequency threshold for image (default: 20Hz)')
 parser.add_argument('--geometric-signal-decay', '-g', default=0, type=verifyDecay,
                     help='give data a decay method to smooth image (0-1)')
 parser.add_argument('--scale-log', '-s', action='store_true',

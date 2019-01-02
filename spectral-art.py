@@ -7,6 +7,8 @@ def verifyDecay(value):
     return value
 
 parser = argparse.ArgumentParser(description='Convert an audio segment to a art')
+parser.add_argument('audio_file', type=str,
+                    help='a file containing the sample audio data')
 parser.add_argument('colour_file', type=open,
                     help='a file containing the colour codes')
 parser.add_argument('output_file', type=str,

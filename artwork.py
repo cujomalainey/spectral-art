@@ -1,6 +1,11 @@
 from PIL import Image, ImageDraw
 import argparse
 
+def verifyDecay(value):
+    if float(value) < 0 or float(value) >= 1:
+        raise argparse.ArgumentTypeError("Geometric signal decay value out of range (must be between 0 and 1)")
+    return value
+
 parser = argparse.ArgumentParser(description='Convert an audio segment to a art')
 parser.add_argument('colour_file', type=open,
                     help='a file containing the colour codes')
@@ -20,6 +25,8 @@ parser.add_argument('--upper-frequency', '-u', default=20000, type=int,
                     help='upper frequency threshold for image')
 parser.add_argument('--lower-frequency', '-l', default=20, type=int,
                     help='lower frequency threshold for image')
+parser.add_argument('--geometric-signal-decay', '-g', default=0, type=verifyDecay,
+                    help='give data a decay method to smooth image (0-1)')
 parser.add_argument('--scale-log', '-s', action='store_true',
                     help='scale frequency amplitude logarithmically')
 parser.add_argument('--orient-log', '-o', action='store_true',

@@ -1,11 +1,8 @@
-from PIL import Image, ImageDraw
 from numpy.fft import rfft
 from numpy import mean, array, amax
 from math import ceil, log
 from tqdm import tqdm
 import argparse
-import wave
-import struct
 import sys
 
 def verifyDecay(value):
@@ -13,39 +10,6 @@ def verifyDecay(value):
         raise argparse.ArgumentTypeError("Geometric signal decay value out of range (must be between 0 and 1)")
     return float(value)
 
-def real(v):
-    return v.real
-
-class betterWav:
-    def __init__(self, f, args):
-        self.f = f
-        self.input_length  = int(ceil(f.getframerate() * args.height / (args.upper_frequency - args.lower_frequency))) if args.frequency_count == -1 else args.frequency_count
-
-        print("Audio Sample Width:    {}".format(f.getsampwidth()))
-        print("Audio Frame Rate:      {}".format(f.getframerate()))
-        print("Audio Channel Count:   {}".format(f.getnchannels()))
-        print("Audio FFT Input Depth: {}".format(self.input_length))
-
-    def readInSegment(self, startingTime):
-        audio_data = []
-        frame_start = self.getStartingPosition(self.getFrameFromTime(startingTime))
-        self.f.setpos(self.frameToPointer(frame_start))
-        for i in range(0, self.input_length):
-            # TODO dynamically parse format
-            audio_data.append(mean(struct.unpack("<hh", self.f.readframes(1))))
-        return audio_data
-
-    def frameToPointer(self, frame):
-        return self.f.getsampwidth() * self.f.getnchannels() * frame
-
-    def getFrameFromTime(self, time):
-        return int(round(time * self.f.getframerate()))
-
-    def getStartingPosition(self, startingPosition):
-        startingPosition -= int(ceil(self.input_length / 2))
-        startingPosition = max(startingPosition, 0)
-        startingPosition = min(self.f.getnframes() - self.input_length, startingPosition)
-        return startingPosition
 
 parser = argparse.ArgumentParser(description='Convert an audio segment to art')
 parser.add_argument('audio_file', type=str,
@@ -78,10 +42,7 @@ parser.add_argument('--scale-percentile', '-p', default=0.95, type=float,
                     help='percentile which to clip scale of on data')
 args = parser.parse_args()
 
-waveFile = betterWav(wave.open(args.audio_file, 'r'), args)
 
-im = Image.new('RGB', (args.width, args.height), color='red')
-draw = ImageDraw.Draw(im)
 
 time_delta = (args.end - args.begin) / args.width
 current_time = args.begin

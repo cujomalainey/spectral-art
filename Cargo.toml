@@ -5,3 +5,4 @@ authors = ["Curtis Malainey <curtis@malainey.com>"]
 edition = "2018"
 
 [dependencies]
+wavefile = "0.2.0"

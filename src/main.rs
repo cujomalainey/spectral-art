@@ -6,4 +6,5 @@ fn main() {
     println!("{:}", f.sample_rate());
     let mut iter = f.iter();
     let frame = iter.nth(0).unwrap();
+    println!("Data is {:?}", frame);
 }

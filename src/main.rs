@@ -45,14 +45,17 @@ fn main() {
     let start_time = audio_section.get(MUSIC_START_TIME).unwrap();
     let stop_time = audio_section.get(MUSIC_STOP_TIME).unwrap();
 
+    let fft_section = conf.section(Some(SECTION_FFT)).unwrap();
+    let fft_width = fft_section.get(FFT_WIDTH).unwrap();
     let f = WaveFile::open(file.as_str()).unwrap();
     println!("{:}", f.sample_rate());
     let mut iter = f.iter();
+    let fft_width = usize::from_str_radix(fft_width, 10).unwrap();
 
     let mut input:  Vec<Complex<f32>> = vec![Zero::zero(); 0];
-    let mut output: Vec<Complex<f32>> = vec![Zero::zero(); 1024];
+    let mut output: Vec<Complex<f32>> = vec![Zero::zero(); fft_width];
 
-    for _i in 0..1024 {
+    for _i in 0..fft_width as i32 {
         let frame = iter.nth(0).unwrap();
         input.push(Complex::new(avg(&frame) as f32, 0.0));
     }

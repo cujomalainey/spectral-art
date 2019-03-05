@@ -11,6 +11,7 @@ const SECTION_MUSIC: &str = "music";
 const MUSIC_FILE: &str = "file";
 const MUSIC_START_TIME: &str = "start_time";
 const MUSIC_STOP_TIME: &str = "stop_time";
+const MUSIC_CHANNEL: &str = "channel";
 
 const SECTION_IMAGE: &str = "image";
 const IMAGE_WIDTH: &str = "width";

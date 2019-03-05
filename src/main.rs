@@ -2,6 +2,7 @@ extern crate ini;
 
 use ini::Ini;
 use std::env;
+use std::collections::HashMap;
 use wavefile::WaveFile;
 use rustfft::FFTplanner;
 use rustfft::num_complex::Complex;
@@ -37,21 +38,49 @@ fn avg(v: &Vec<i32>) -> i32 {
     x / y
 }
 
+fn load_audio_file(audio_section: &HashMap<String, String>) -> WaveFile {
+    let file = audio_section.get(MUSIC_FILE).unwrap();
+    let channels = audio_section.get(MUSIC_CHANNEL).unwrap();
+    let start_time: usize = audio_section.get(MUSIC_START_TIME).unwrap().parse().unwrap();
+    let stop_time: usize = audio_section.get(MUSIC_STOP_TIME).unwrap().parse().unwrap();
+    let f = WaveFile::open(file.as_str()).unwrap();
+    let runtime = f.len()/f.sample_rate();
+
+    // Dump summary
+    println!("Loading audio file: {}", file);
+    println!("  Sample rate:  {}", f.sample_rate());
+    println!("  Sample width: {}", f.bits_per_sample());
+    println!("  Channels:     {}", f.channels());
+    println!("  Length:       {}s", runtime);
+
+    // check start and end are within range
+    if start_time > runtime || stop_time > runtime {
+        panic!("Config time bounds longer than file");
+    }
+    // check channel config is valid
+    if channels != "mono" {
+        let channel_count: usize = channels.parse().unwrap();
+        if channel_count >= f.channels() {
+            panic!("Channel index out of range");
+        }
+    }
+    f
+}
+
 fn main() {
     let args: Vec<_> = env::args().collect();
     let conf = Ini::load_from_file(&args[1]).unwrap();
 
     let audio_section = conf.section(Some(SECTION_MUSIC)).unwrap();
-    let file = audio_section.get(MUSIC_FILE).unwrap();
+    let channels = audio_section.get(MUSIC_CHANNEL).unwrap();
     let start_time = audio_section.get(MUSIC_START_TIME).unwrap();
     let stop_time = audio_section.get(MUSIC_STOP_TIME).unwrap();
 
+    let f = load_audio_file(audio_section);
+
     let fft_section = conf.section(Some(SECTION_FFT)).unwrap();
-    let fft_width = fft_section.get(FFT_WIDTH).unwrap();
-    let f = WaveFile::open(file.as_str()).unwrap();
-    println!("{:}", f.sample_rate());
+    let fft_width: usize = fft_section.get(FFT_WIDTH).unwrap().parse().unwrap();
     let mut iter = f.iter();
-    let fft_width = usize::from_str_radix(fft_width, 10).unwrap();
 
     let mut input:  Vec<Complex<f32>> = vec![Zero::zero(); 0];
     let mut output: Vec<Complex<f32>> = vec![Zero::zero(); fft_width];

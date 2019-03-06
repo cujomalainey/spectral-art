@@ -10,6 +10,7 @@ use rustfft::num_traits::Zero;
 
 const SECTION_MUSIC: &str = "music";
 const MUSIC_FILE: &str = "file";
+const MUSIC_IS_MONO: &str = "is_mono";
 const MUSIC_START_TIME: &str = "start_time";
 const MUSIC_STOP_TIME: &str = "stop_time";
 const MUSIC_CHANNEL: &str = "channel";
@@ -72,14 +73,17 @@ fn main() {
     let conf = Ini::load_from_file(&args[1]).unwrap();
 
     let audio_section = conf.section(Some(SECTION_MUSIC)).unwrap();
-    let channels = audio_section.get(MUSIC_CHANNEL).unwrap();
-    let start_time = audio_section.get(MUSIC_START_TIME).unwrap();
-    let stop_time = audio_section.get(MUSIC_STOP_TIME).unwrap();
+    let channels:   u8 = audio_section.get(MUSIC_CHANNEL).unwrap().parse().unwrap();
+    let is_mono:    bool = audio_section.get(MUSIC_IS_MONO).unwrap().parse().unwrap();
+    let start_time: f32 = audio_section.get(MUSIC_START_TIME).unwrap().parse().unwrap();
+    let stop_time:  f32 = audio_section.get(MUSIC_STOP_TIME).unwrap().parse().unwrap();
 
     let f = load_audio_file(audio_section);
 
     let fft_section = conf.section(Some(SECTION_FFT)).unwrap();
     let fft_width: usize = fft_section.get(FFT_WIDTH).unwrap().parse().unwrap();
+    let fft_decimations: u8 = fft_section.get(FFT_DECIMATIONS).unwrap().parse().unwrap();
+    let window_function = fft_section.get(FFT_WINDOW_FUNCTION).unwrap();
     let mut iter = f.iter();
 
     let mut input:  Vec<Complex<f32>> = vec![Zero::zero(); 0];
@@ -91,7 +95,7 @@ fn main() {
     }
 
     let mut planner = FFTplanner::new(false);
-    let fft = planner.plan_fft(1024);
+    let fft = planner.plan_fft(fft_width);
     fft.process(&mut input, &mut output);
 
     // for i in 0..513 {

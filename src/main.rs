@@ -27,6 +27,7 @@ const SECTION_FFT: &str = "fft";
 const FFT_WIDTH: &str = "width";
 const FFT_WINDOW_FUNCTION: &str = "window_function";
 const FFT_DECIMATIONS: &str = "decimations";
+const FFT_INTERPOLATION: &str = "interpolation";
 
 const SECTION_SCALING: &str = "scaling";
 const SCALING_FREQUENCY: &str = "frequency";
@@ -70,6 +71,13 @@ fn load_audio_file(audio_section: &HashMap<String, String>) -> WaveFile {
     f
 }
 
+fn load_gradient_file(image_section: &HashMap<String, String>) -> Vec<Rgb<u8>> {
+    let mut scale: Vec<Rgb<u8>> = Vec::new();
+    let file = image_section.get(IMAGE_GRADIENT_FILE).unwrap();
+    // TODO load gradient file
+    scale
+}
+
 fn create_image(image_section: &HashMap<String, String>) -> ImageBuffer<Rgb<u8>, Vec<u8>> {
     let img_width: u32 = image_section.get(IMAGE_WIDTH).unwrap().parse().unwrap();
     let img_height: u32 = image_section.get(IMAGE_HEIGHT).unwrap().parse().unwrap();
@@ -90,6 +98,7 @@ fn main() {
 
     let f = load_audio_file(audio_section);
     let img = create_image(image_section);
+    let gradient = load_gradient_file(image_section);
 
     let fft_section = conf.section(Some(SECTION_FFT)).unwrap();
     let fft_width: usize = fft_section.get(FFT_WIDTH).unwrap().parse().unwrap();

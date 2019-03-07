@@ -2,7 +2,7 @@ extern crate ini;
 extern crate image;
 
 use ini::Ini;
-use image::{ImageBuffer, Pixel};
+use image::{ImageBuffer, Rgb};
 use rustfft::FFTplanner;
 use rustfft::num_complex::Complex;
 use rustfft::num_traits::Zero;
@@ -70,7 +70,7 @@ fn load_audio_file(audio_section: &HashMap<String, String>) -> WaveFile {
     f
 }
 
-fn create_image<P: Pixel + 'static>(image_section: &HashMap<String, String>) -> ImageBuffer<P, Vec<P::Subpixel>> {
+fn create_image(image_section: &HashMap<String, String>) -> ImageBuffer<Rgb<u8>, Vec<u8>> {
     let img_width: u32 = image_section.get(IMAGE_WIDTH).unwrap().parse().unwrap();
     let img_height: u32 = image_section.get(IMAGE_HEIGHT).unwrap().parse().unwrap();
     let mut imgbuf = ImageBuffer::new(img_width, img_height);
@@ -89,7 +89,7 @@ fn main() {
     // let stop_time:  f32 = audio_section.get(MUSIC_STOP_TIME).unwrap().parse().unwrap();
 
     let f = load_audio_file(audio_section);
-    let img = create_image<>(image_section);
+    let img = create_image(image_section);
 
     let fft_section = conf.section(Some(SECTION_FFT)).unwrap();
     let fft_width: usize = fft_section.get(FFT_WIDTH).unwrap().parse().unwrap();

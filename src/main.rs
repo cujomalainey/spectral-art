@@ -39,6 +39,19 @@ const SCALING_UPPER_FREQUENCY: &str = "upper_frequency";
 
 type WindowFunctionType = fn(usize) -> Vec<f32>;
 
+struct AudioIndex {
+    start_frame: usize,
+    stop_frame: usize,
+    step_size: usize,
+    current_step: usize,
+}
+
+impl AudioIndex {
+    fn new() -> Self {
+        AudioIndex {start_frame: 0, stop_frame: 0, step_size: 0, current_step: 0}
+    }
+}
+
 fn avg(v: &Vec<i32>) -> i32 {
     let x: i32 = v.iter().sum();
     let y: i32 = v.len() as i32;

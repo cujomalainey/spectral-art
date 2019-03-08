@@ -195,10 +195,10 @@ fn main() {
     // let mut input:  Vec<Complex<f32>> = vec![Zero::zero(); 0];
     // let mut output: Vec<Complex<f32>> = vec![Zero::zero(); fft_width];
 
-    // for _i in 0..fft_width as i32 {
-    //     let frame = iter.nth(0).unwrap();
-    //     input.push(Complex::new(avg(&frame) as f32, 0.0));
-    // }
+    for _i in 0..img.width() as i32 {
+        let frame = iter.nth(0).unwrap();
+        // input.push(Complex::new(avg(&frame) as f32, 0.0));
+    }
     //
     // let mut planner = FFTplanner::new(false);
     // let fft = planner.plan_fft(fft_width);

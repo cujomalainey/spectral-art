@@ -88,15 +88,83 @@ fn create_image(image_section: &HashMap<String, String>) -> ImageBuffer<Rgb<u8>,
     imgbuf
 }
 
-// TODO implement long list of functions
 fn window_rectangle(n: usize) -> Vec<f32> {
+    vec![One::one(); n]
+}
+
+// TODO implement
+fn window_triangular(n: usize) -> Vec<f32> {
+    vec![One::one(); n]
+}
+
+// TODO implement
+fn window_parzen(n: usize) -> Vec<f32> {
+    vec![One::one(); n]
+}
+
+// TODO implement
+fn window_welch(n: usize) -> Vec<f32> {
+    vec![One::one(); n]
+}
+
+// TODO implement
+fn window_sine(n: usize) -> Vec<f32> {
+    vec![One::one(); n]
+}
+
+// TODO implement
+fn window_hann(n: usize) -> Vec<f32> {
+    vec![One::one(); n]
+}
+
+// TODO implement
+fn window_hamming(n: usize) -> Vec<f32> {
+    vec![One::one(); n]
+}
+
+// TODO implement
+fn window_blackman(n: usize) -> Vec<f32> {
+    vec![One::one(); n]
+}
+
+// TODO implement
+fn window_nuttall(n: usize) -> Vec<f32> {
+    vec![One::one(); n]
+}
+
+// TODO implement
+fn window_blackman_nuttall(n: usize) -> Vec<f32> {
+    vec![One::one(); n]
+}
+
+// TODO implement
+fn window_blackman_harris(n: usize) -> Vec<f32> {
+    vec![One::one(); n]
+}
+
+// TODO implement
+fn window_flat_top(n: usize) -> Vec<f32> {
     vec![One::one(); n]
 }
 
 // TODO implement matching to functions
 fn get_window_function(fft_section: &HashMap<String, String>) -> WindowFunctionType {
     let window_function = fft_section.get(FFT_WINDOW_FUNCTION).unwrap();
-    window_rectangle
+    match &window_function[..] {
+        "rectangular"      => window_rectangle,
+        "triangular"       => window_triangular,
+        "parzen"           => window_parzen,
+        "welch"            => window_welch,
+        "sine"             => window_sine,
+        "hann"             => window_hann,
+        "hamming"          => window_hamming,
+        "blackman"         => window_blackman,
+        "nuttall"          => window_nuttall,
+        "blackman-nuttall" => window_blackman_nuttall,
+        "blackman-harris"  => window_blackman_harris,
+        "flat-top"         => window_flat_top,
+        _                  => panic!("Unknown Window function"),
+    }
 }
 
 fn get_fft_window(fft_section: &HashMap<String, String>) -> Vec<f32> {

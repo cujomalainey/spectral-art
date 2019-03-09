@@ -139,6 +139,12 @@ impl FFTResult {
             self.lookup.push(frequency);
         }
     }
+
+    fn get_frequency(frequency: u32) -> f32 {
+        // TODO implement
+        // implement interpolation handling
+        0.0
+    }
 }
 
 impl SampleBuilder {

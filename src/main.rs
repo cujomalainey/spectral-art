@@ -46,9 +46,35 @@ struct AudioIndex {
     current_step: usize,
 }
 
+struct FFT_builder {
+    planner: FFTplanner,
+    input:  Vec<Complex<f32>>,
+    output: Vec<Complex<f32>>,
+    window: Vec<f32>,
+}
+
 impl AudioIndex {
+    fn new(start_time: f32, stop_time: f32, steps: usize, sampling_frequency: usize) -> Self {
+        let start_frame: usize = (sampling_frequency as f32 * start_time) as usize;
+        let stop_frame:  usize = (sampling_frequency as f32 * stop_time) as usize;
+        let step_size:   usize = (stop_frame - start_frame) / steps as usize;
+        AudioIndex {
+            start_frame: start_frame,
+            stop_frame: stop_frame,
+            step_size: step_size,
+            current_step: 0
+        }
+    }
+
+    fn get_next_frame(&mut self) -> usize {
+        let next = self.current_step * self.step_size + self.start_frame;
+        self.current_step += 1;
+        next
+    }
+}
+
+impl FFT_builder {
     fn new() -> Self {
-        AudioIndex {start_frame: 0, stop_frame: 0, step_size: 0, current_step: 0}
     }
 }
 
@@ -56,6 +82,12 @@ fn avg(v: &Vec<i32>) -> i32 {
     let x: i32 = v.iter().sum();
     let y: i32 = v.len() as i32;
     x / y
+}
+
+fn initialize_index(audio_section: &HashMap<String, String>, wav: &WaveFile, image_width: usize) -> AudioIndex {
+    let start_time: f32 = audio_section.get(MUSIC_START_TIME).unwrap().parse().unwrap();
+    let stop_time: f32 = audio_section.get(MUSIC_STOP_TIME).unwrap().parse().unwrap();
+    AudioIndex::new(start_time, stop_time, image_width, wav.sample_rate())
 }
 
 fn load_audio_file(audio_section: &HashMap<String, String>) -> WaveFile {
@@ -198,15 +230,14 @@ fn main() {
     // let start_time: f32 = audio_section.get(MUSIC_START_TIME).unwrap().parse().unwrap();
     // let stop_time:  f32 = audio_section.get(MUSIC_STOP_TIME).unwrap().parse().unwrap();
 
-    let f = load_audio_file(audio_section);
+    let wav = load_audio_file(audio_section);
     let img = create_image(image_section);
     let gradient = load_gradient_file(image_section);
     let window = get_fft_window(fft_section);
+    let index = initialize_index(audio_section, &wav, img.width() as usize);
 
-    let mut iter = f.iter();
+    let mut iter = wav.iter();
 
-    // let mut input:  Vec<Complex<f32>> = vec![Zero::zero(); 0];
-    // let mut output: Vec<Complex<f32>> = vec![Zero::zero(); fft_width];
 
     for _i in 0..img.width() as i32 {
         let frame = iter.nth(0).unwrap();

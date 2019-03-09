@@ -322,4 +322,7 @@ fn main() {
         let next_index = index.get_next_frame();
         let result = builder.process(&mut iter, next_index);
     }
+
+    let output_file = image_section.get(IMAGE_OUTPUT_FILE).unwrap();
+    img.save(output_file).unwrap();
 }

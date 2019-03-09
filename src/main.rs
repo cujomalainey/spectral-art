@@ -3,13 +3,13 @@ extern crate image;
 
 use ini::Ini;
 use image::{ImageBuffer, Rgb};
-use rustfft::FFTplanner;
+use rustfft::{FFTplanner, FFT};
 use rustfft::num_complex::Complex;
-use rustfft::num_traits::Zero;
-use rustfft::num_traits::One;
+use rustfft::num_traits::{Zero, One};
 use std::env;
+use std::sync::Arc;
 use std::collections::HashMap;
-use wavefile::WaveFile;
+use wavefile::{WaveFile, WaveFileIterator};
 
 const SECTION_MUSIC: &str = "music";
 const MUSIC_FILE: &str = "file";
@@ -46,11 +46,25 @@ struct AudioIndex {
     current_step: usize,
 }
 
-struct FFT_builder {
-    planner: FFTplanner,
+struct FFTBuilder {
+    fft: Arc<dyn FFT<f32>>,
+    builder: SampleBuilder,
+    decimations: u8,
+    buffer_size: usize,
     input:  Vec<Complex<f32>>,
     output: Vec<Complex<f32>>,
     window: Vec<f32>,
+    buffer: Vec<i32>,
+}
+
+struct FFTResult {
+    values: HashMap<u32, f32>,
+    lookup: Vec<u32>,
+}
+
+struct SampleBuilder {
+    is_mono: bool,
+    channel: usize,
 }
 
 impl AudioIndex {
@@ -73,15 +87,82 @@ impl AudioIndex {
     }
 }
 
-impl FFT_builder {
-    fn new() -> Self {
+impl FFTBuilder {
+    fn new(width: usize, decimations: u8, window_func: WindowFunctionType, sample_builder: SampleBuilder) -> Self {
+        let mut planner = FFTplanner::new(false);
+        let buffer_size = width * (2^decimations as usize);
+        FFTBuilder {
+            fft: planner.plan_fft(width),
+            builder: sample_builder,
+            decimations: decimations,
+            buffer_size,
+            input: vec![Zero::zero(); width],
+            output: vec![Zero::zero(); width],
+            window: window_func(width),
+            buffer: vec![Zero::zero(); buffer_size],
+        }
+    }
+
+
+    fn load_buffer(&mut self, wav_iter: &mut WaveFileIterator) {
+        self.buffer.clear();
+        for i in 0..self.buffer_size {
+            self.buffer.push(self.builder.get_sample(wav_iter));
+        }
+    }
+
+    fn process(&mut self, wav_iter: &mut WaveFileIterator, reference_frame: usize) -> FFTResult {
+        let mut result = FFTResult::new();
+        self.load_buffer(wav_iter);
+        for i in 0..self.decimations {
+            // TODO
+            // process fft
+            // add results
+            // half pass
+            // decimate
+        }
+        result
     }
 }
 
-fn avg(v: &Vec<i32>) -> i32 {
-    let x: i32 = v.iter().sum();
-    let y: i32 = v.len() as i32;
-    x / y
+impl FFTResult {
+    fn new() -> Self {
+        FFTResult {
+            values: HashMap::new(),
+            lookup: Vec::new(),
+        }
+    }
+
+    fn add_result(&mut self, frequency: u32, amplitude: f32) {
+        if self.values.get(&frequency) == None {
+            self.values.insert(frequency, amplitude);
+            self.lookup.push(frequency);
+        }
+    }
+}
+
+impl SampleBuilder {
+    fn new(channel: usize, is_mono: bool) -> Self {
+        SampleBuilder {
+            channel,
+            is_mono,
+        }
+    }
+
+    fn get_sample(&self, wav_iter: &mut WaveFileIterator) -> i32 {
+        let sample = wav_iter.next().unwrap();
+        if self.is_mono {
+            self.avg(&sample)
+        } else {
+            sample[self.channel]
+        }
+    }
+
+    fn avg(&self, v: &Vec<i32>) -> i32 {
+        let x: i32 = v.iter().sum();
+        let y: i32 = v.len() as i32;
+        x / y
+    }
 }
 
 fn initialize_index(audio_section: &HashMap<String, String>, wav: &WaveFile, image_width: usize) -> AudioIndex {
@@ -212,9 +293,14 @@ fn get_window_function(fft_section: &HashMap<String, String>) -> WindowFunctionT
     }
 }
 
-fn get_fft_window(fft_section: &HashMap<String, String>) -> Vec<f32> {
-    let fft_width: usize = fft_section.get(FFT_WIDTH).unwrap().parse().unwrap();
-    get_window_function(fft_section)(fft_width)
+fn initialize_fft_builder(fft_section: &HashMap<String, String>, audio_section: &HashMap<String, String>) -> FFTBuilder {
+    let fft_decimations: u8 = fft_section.get(FFT_DECIMATIONS).unwrap().parse().unwrap();
+    let fft_width: usize    = fft_section.get(FFT_WIDTH).unwrap().parse().unwrap();
+    let window_function     = get_window_function(fft_section);
+    let channel: usize      = audio_section.get(MUSIC_CHANNEL).unwrap().parse().unwrap();
+    let is_mono: bool       = audio_section.get(MUSIC_IS_MONO).unwrap().parse().unwrap();
+    let sample_builder      = SampleBuilder::new(channel, is_mono);
+    FFTBuilder::new(fft_width, fft_decimations, window_function, sample_builder)
 }
 
 fn main() {
@@ -224,32 +310,16 @@ fn main() {
     let audio_section = conf.section(Some(SECTION_MUSIC)).unwrap();
     let image_section = conf.section(Some(SECTION_IMAGE)).unwrap();
     let fft_section = conf.section(Some(SECTION_FFT)).unwrap();
-    let fft_decimations: u8 = fft_section.get(FFT_DECIMATIONS).unwrap().parse().unwrap();
-    // let channels:   u8 = audio_section.get(MUSIC_CHANNEL).unwrap().parse().unwrap();
-    // let is_mono:    bool = audio_section.get(MUSIC_IS_MONO).unwrap().parse().unwrap();
-    // let start_time: f32 = audio_section.get(MUSIC_START_TIME).unwrap().parse().unwrap();
-    // let stop_time:  f32 = audio_section.get(MUSIC_STOP_TIME).unwrap().parse().unwrap();
 
     let wav = load_audio_file(audio_section);
     let img = create_image(image_section);
     let gradient = load_gradient_file(image_section);
-    let window = get_fft_window(fft_section);
-    let index = initialize_index(audio_section, &wav, img.width() as usize);
-
-    let mut iter = wav.iter();
-
+    let mut index = initialize_index(audio_section, &wav, img.width() as usize);
+    let mut builder = initialize_fft_builder(fft_section, audio_section);
 
     for _i in 0..img.width() as i32 {
-        let frame = iter.nth(0).unwrap();
-        // input.push(Complex::new(avg(&frame) as f32, 0.0));
+        let mut iter = wav.iter();
+        let next_index = index.get_next_frame();
+        let result = builder.process(&mut iter, next_index);
     }
-    //
-    // let mut planner = FFTplanner::new(false);
-    // let fft = planner.plan_fft(fft_width);
-    // fft.process(&mut input, &mut output);
-    //
-    // // for i in 0..513 {
-    // for i in 0..4 {
-    //     println!("{:?}", output[i]);
-    // }
 }

@@ -108,3 +108,4 @@ venv.bak/
 **/*.rs.bk
 Cargo.lock
 *.wav
+*.png

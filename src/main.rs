@@ -160,6 +160,7 @@ impl FFTBuilder {
             // half pass
             // decimate
         }
+        result.finalize();
         result
     }
 }
@@ -404,6 +405,8 @@ fn main() {
     let fft_section = conf.section(Some(SECTION_FFT)).unwrap();
 
     let wav = load_audio_file(audio_section);
+    // TODO this loads the whole file into RAM. This is inefficient
+    // and should be redesigned to load only the section that will be consumed
     let wav_data: Vec<Vec<i32>> = wav.iter().collect();
     let img = create_image(image_section);
     let gradient = load_gradient_file(image_section);
@@ -411,12 +414,12 @@ fn main() {
     let mut builder = initialize_fft_builder(fft_section, audio_section, &wav);
     let mut buffer: Vec<Vec<f32>> = vec![Vec::new(); img.width() as usize];
 
-    for _i in 0..img.width() as i32 {
+    for x in 0..img.width() as i32 {
         let next_index = index.get_next_frame();
         let result = builder.process(&wav_data, next_index);
         for y in 0..img.height() as i32 {
-            // TODO get f for each y pixel
-            // insert into vec x
+            // TODO
+            // implement alternative scaling factors
         }
     }
 

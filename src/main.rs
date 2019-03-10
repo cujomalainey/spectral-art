@@ -3,6 +3,7 @@ extern crate image;
 
 use ini::Ini;
 use image::{ImageBuffer, Rgb};
+use pbr::ProgressBar;
 use rustfft::{FFTplanner, FFT};
 use rustfft::num_complex::Complex;
 use rustfft::num_traits::{Zero, One};
@@ -426,6 +427,7 @@ fn main() {
     // TODO this loads the whole file into RAM. This is inefficient
     // and should be redesigned to load only the section that will be consumed
     let wav_data: Vec<Vec<i32>> = wav.iter().collect();
+    println!("Done loading audio.");
     let mut img = create_image(image_section);
     let gradient = load_gradient_file(image_section);
     let mut index = initialize_index(audio_section, &wav, img.width() as usize);
@@ -434,14 +436,17 @@ fn main() {
     let frequency_gradient = get_frequency_gradient(img.height(), scaling_section);
     let mut max_amplitude = 0.0;
 
+    let mut pb = ProgressBar::new(img.width() as u64);
+    pb.format("╢▌▌░╟");
     for x in 0..img.width() {
+        pb.inc();
         let next_index = index.get_next_frame();
         let result = builder.process(&wav_data, next_index);
         let mut freq_iter = frequency_gradient.iter();
         let mut x_buffer = Vec::new();
         for y in 0..img.height() {
             // TODO implement smoothing
-            let amplitude = result.get_frequency(*freq_iter.next().unwrap());
+            let amplitude = f32::sqrt(result.get_frequency(*freq_iter.next().unwrap()));
             // Deal with rusts silly floats
             if amplitude.partial_cmp(&max_amplitude) == Some(Ordering::Greater) {
                 max_amplitude = amplitude;
@@ -450,8 +455,12 @@ fn main() {
         }
         buffer.push(x_buffer);
     }
+    println!("");
 
+    let mut pb = ProgressBar::new(img.width() as u64);
+    pb.format("╢▌▌░╟");
     for x in 0..img.width() {
+        pb.inc();
         let x_buffer = buffer.get(x as usize).unwrap();
         for y in 0..img.height() {
             // TODO convert to variable scale for loaded gradient
@@ -462,7 +471,9 @@ fn main() {
     }
     // scale all values accordingly
     // plot image
+    println!("");
 
+    println!("Saving Image");
     let output_file = image_section.get(IMAGE_OUTPUT_FILE).unwrap();
     img.save(output_file).unwrap();
 }

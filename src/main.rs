@@ -131,7 +131,7 @@ impl FFTBuilder {
 
     fn load_buffer(&mut self, wav_iter: &mut Iter<Vec<i32>>) {
         self.buffer.clear();
-        for i in 0..self.buffer_size {
+        for _i in 0..self.buffer_size {
             self.buffer.push(self.builder.get_sample(wav_iter));
         }
     }
@@ -438,13 +438,13 @@ fn main() {
 
     let mut pb = ProgressBar::new(img.width() as u64);
     pb.format("╢▌▌░╟");
-    for x in 0..img.width() {
+    for _x in 0..img.width() {
         pb.inc();
         let next_index = index.get_next_frame();
         let result = builder.process(&wav_data, next_index);
         let mut freq_iter = frequency_gradient.iter();
         let mut x_buffer = Vec::new();
-        for y in 0..img.height() {
+        for _y in 0..img.height() {
             // TODO implement smoothing
             let amplitude = f32::sqrt(result.get_frequency(*freq_iter.next().unwrap()));
             // Deal with rusts silly floats

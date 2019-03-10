@@ -133,9 +133,13 @@ impl FFTBuilder {
         }
     }
 
-    fn process(&mut self, wav_iter: &mut WaveFileIterator, reference_frame: usize) -> FFTResult {
-        let skip: usize = max(reference_frame as i32 - (self.buffer_size as i32 / 2), 0) as usize;
-        wav_iter.skip(skip);
+    fn process(
+        &mut self,
+        wav_iter: &mut WaveFileIterator,
+        reference_frame: usize
+        ) -> FFTResult {
+        let skip = max(reference_frame as i32 - (self.buffer_size as i32 / 2) - 1, 0) as usize;
+        wav_iter.nth(skip);
         let mut result = FFTResult::new(self.interp);
         let nyquist = self.sampling_frequency / 2;
         self.load_buffer(wav_iter);
@@ -408,7 +412,6 @@ fn main() {
         let mut iter = wav.iter();
         let next_index = index.get_next_frame();
         let result = builder.process(&mut iter, next_index);
-        println!("{:?}", result.get_frequency(200));
         for y in 0..img.height() as i32 {
             // TODO get f for each y pixel
             // insert into vec x

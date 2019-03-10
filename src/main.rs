@@ -7,6 +7,7 @@ use rustfft::{FFTplanner, FFT};
 use rustfft::num_complex::Complex;
 use rustfft::num_traits::{Zero, One};
 use std::env;
+use std::cmp::max;
 use std::sync::Arc;
 use std::collections::HashMap;
 use wavefile::{WaveFile, WaveFileIterator};
@@ -39,6 +40,13 @@ const SCALING_UPPER_FREQUENCY: &str = "upper_frequency";
 
 type WindowFunctionType = fn(usize) -> Vec<f32>;
 
+#[derive(Clone, Copy)]
+enum InterpFunc {
+    Linear,
+    Quadratic,
+    Cubic,
+}
+
 struct AudioIndex {
     start_frame: usize,
     stop_frame: usize,
@@ -51,15 +59,19 @@ struct FFTBuilder {
     builder: SampleBuilder,
     decimations: u8,
     buffer_size: usize,
+    fft_width: usize,
+    sampling_frequency: usize,
+    interp: InterpFunc,
     input:  Vec<Complex<f32>>,
     output: Vec<Complex<f32>>,
     window: Vec<f32>,
-    buffer: Vec<i32>,
+    buffer: Vec<Complex<f32>>,
 }
 
 struct FFTResult {
     values: HashMap<u32, f32>,
     lookup: Vec<u32>,
+    interp: InterpFunc,
 }
 
 struct SampleBuilder {
@@ -88,13 +100,23 @@ impl AudioIndex {
 }
 
 impl FFTBuilder {
-    fn new(width: usize, decimations: u8, window_func: WindowFunctionType, sample_builder: SampleBuilder) -> Self {
+    fn new(
+        width: usize,
+        decimations: u8,
+        window_func: WindowFunctionType,
+        sample_builder: SampleBuilder,
+        interp: InterpFunc,
+        sampling_frequency: usize
+        ) -> Self {
         let mut planner = FFTplanner::new(false);
-        let buffer_size = width * (2^decimations as usize);
+        let buffer_size = width * usize::pow(2, decimations as u32);
         FFTBuilder {
             fft: planner.plan_fft(width),
             builder: sample_builder,
             decimations: decimations,
+            sampling_frequency,
+            fft_width: width,
+            interp,
             buffer_size,
             input: vec![Zero::zero(); width],
             output: vec![Zero::zero(); width],
@@ -112,12 +134,23 @@ impl FFTBuilder {
     }
 
     fn process(&mut self, wav_iter: &mut WaveFileIterator, reference_frame: usize) -> FFTResult {
-        let mut result = FFTResult::new();
+        let skip: usize = max(reference_frame as i32 - (self.buffer_size as i32 / 2), 0) as usize;
+        wav_iter.skip(skip);
+        let mut result = FFTResult::new(self.interp);
+        let nyquist = self.sampling_frequency / 2;
         self.load_buffer(wav_iter);
-        for i in 0..self.decimations {
-            // TODO
+        for i in 0..=self.decimations {
             // process fft
+            let offset = (self.buffer.len() - self.fft_width) / 2;
+            self.input.copy_from_slice(&self.buffer[offset..offset+self.fft_width]);
+            self.fft.process(&mut self.input, &mut self.output);
             // add results
+            let half_width = self.fft_width / 2;
+            for i in 0..=(half_width) {
+                let freq = i * nyquist / half_width;
+                result.add_result(freq as u32, self.output.get(i).unwrap().re);
+            }
+            // TODO
             // half pass
             // decimate
         }
@@ -126,10 +159,11 @@ impl FFTBuilder {
 }
 
 impl FFTResult {
-    fn new() -> Self {
+    fn new(interp: InterpFunc) -> Self {
         FFTResult {
             values: HashMap::new(),
             lookup: Vec::new(),
+            interp,
         }
     }
 
@@ -140,9 +174,48 @@ impl FFTResult {
         }
     }
 
-    fn get_frequency(frequency: u32) -> f32 {
-        // TODO implement
-        // implement interpolation handling
+    fn finalize(&mut self) {
+        self.lookup.sort_unstable();
+    }
+
+    fn get_frequency(&self, frequency: u32) -> f32 {
+        let f = self.values.get(&frequency);
+        match f {
+            Some(result) => *result,
+            None => self.interpolate(frequency),
+        }
+    }
+
+    fn interpolate(&self, frequency: u32) -> f32 {
+        match self.interp {
+            InterpFunc::Linear => self.linear(frequency),
+            InterpFunc::Quadratic => self.quadtratic(frequency),
+            InterpFunc::Cubic => self.cubic(frequency),
+        }
+    }
+
+    fn linear(&self, frequency: u32) -> f32 {
+        let index = match self.lookup.binary_search(&frequency) {
+            Ok(_) => panic!("Found value when not expected"),
+            Err(index) => index,
+        };
+        let lower = self.lookup.iter().nth(index - 1).unwrap();
+        let lower_value = self.values.get(lower).unwrap();
+        let upper = self.lookup.iter().nth(index).unwrap();
+        let upper_value = self.values.get(upper).unwrap();
+        let weight: f32 = (frequency as f32 - *lower as f32) / ((upper - lower) as f32);
+        interpolation::lerp(lower_value, upper_value, &weight)
+    }
+
+    fn quadtratic(&self, frequency: u32) -> f32 {
+        // TODO
+        // interpolation::quad_bez
+        0.0
+    }
+
+    fn cubic(&self, frequency: u32) -> f32 {
+        // TODO
+        // interpolation::cub_bez
         0.0
     }
 }
@@ -155,12 +228,12 @@ impl SampleBuilder {
         }
     }
 
-    fn get_sample(&self, wav_iter: &mut WaveFileIterator) -> i32 {
+    fn get_sample(&self, wav_iter: &mut WaveFileIterator) -> Complex<f32> {
         let sample = wav_iter.next().unwrap();
         if self.is_mono {
-            self.avg(&sample)
+            Complex::new(self.avg(&sample) as f32, 0.0)
         } else {
-            sample[self.channel]
+            Complex::new(sample[self.channel] as f32, 0.0)
         }
     }
 
@@ -299,14 +372,21 @@ fn get_window_function(fft_section: &HashMap<String, String>) -> WindowFunctionT
     }
 }
 
-fn initialize_fft_builder(fft_section: &HashMap<String, String>, audio_section: &HashMap<String, String>) -> FFTBuilder {
+fn initialize_fft_builder(fft_section: &HashMap<String, String>, audio_section: &HashMap<String, String>, wav: &WaveFile) -> FFTBuilder {
     let fft_decimations: u8 = fft_section.get(FFT_DECIMATIONS).unwrap().parse().unwrap();
     let fft_width: usize    = fft_section.get(FFT_WIDTH).unwrap().parse().unwrap();
     let window_function     = get_window_function(fft_section);
     let channel: usize      = audio_section.get(MUSIC_CHANNEL).unwrap().parse().unwrap();
     let is_mono: bool       = audio_section.get(MUSIC_IS_MONO).unwrap().parse().unwrap();
     let sample_builder      = SampleBuilder::new(channel, is_mono);
-    FFTBuilder::new(fft_width, fft_decimations, window_function, sample_builder)
+    let interp_func         = &fft_section.get(FFT_INTERPOLATION).unwrap()[..];
+    let interp_func = match interp_func {
+        "linear" => InterpFunc::Linear,
+        "quad"   => InterpFunc::Quadratic,
+        "cubic"  => InterpFunc::Cubic,
+        _        => panic!("Unknown Interpolation function"),
+    };
+    FFTBuilder::new(fft_width, fft_decimations, window_function, sample_builder, interp_func, wav.sample_rate())
 }
 
 fn main() {
@@ -321,13 +401,23 @@ fn main() {
     let img = create_image(image_section);
     let gradient = load_gradient_file(image_section);
     let mut index = initialize_index(audio_section, &wav, img.width() as usize);
-    let mut builder = initialize_fft_builder(fft_section, audio_section);
+    let mut builder = initialize_fft_builder(fft_section, audio_section, &wav);
+    let mut buffer: Vec<Vec<f32>> = vec![Vec::new(); img.width() as usize];
 
     for _i in 0..img.width() as i32 {
         let mut iter = wav.iter();
         let next_index = index.get_next_frame();
         let result = builder.process(&mut iter, next_index);
+        println!("{:?}", result.get_frequency(200));
+        for y in 0..img.height() as i32 {
+            // TODO get f for each y pixel
+            // insert into vec x
+        }
     }
+
+    // TODO identify upper limit
+    // scale all values accordingly
+    // plot image
 
     let output_file = image_section.get(IMAGE_OUTPUT_FILE).unwrap();
     img.save(output_file).unwrap();

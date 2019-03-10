@@ -11,6 +11,7 @@ use std::cmp::max;
 use std::slice::Iter;
 use std::sync::Arc;
 use std::collections::HashMap;
+use std::cmp::Ordering;
 use wavefile::WaveFile;
 
 const SECTION_MUSIC: &str = "music";
@@ -396,34 +397,69 @@ fn initialize_fft_builder(fft_section: &HashMap<String, String>, audio_section: 
     FFTBuilder::new(fft_width, fft_decimations, window_function, sample_builder, interp_func, wav.sample_rate())
 }
 
+// TODO
+// implement alternative scaling factors
+fn get_frequency_gradient(
+    height: u32,
+    scaling_section: &HashMap<String, String>
+    ) -> Vec<u32> {
+    let mut buffer = Vec::new();
+    let lower: u32 = scaling_section.get(SCALING_LOWER_FREQUENCY).unwrap().parse().unwrap();
+    let upper: u32 = scaling_section.get(SCALING_UPPER_FREQUENCY).unwrap().parse().unwrap();
+    let step = (upper - lower) / height;
+    for i in 0..height {
+        buffer.push(i * step + lower);
+    }
+    buffer
+}
+
 fn main() {
     let args: Vec<_> = env::args().collect();
     let conf = Ini::load_from_file(&args[1]).unwrap();
 
-    let audio_section = conf.section(Some(SECTION_MUSIC)).unwrap();
-    let image_section = conf.section(Some(SECTION_IMAGE)).unwrap();
-    let fft_section = conf.section(Some(SECTION_FFT)).unwrap();
+    let audio_section   = conf.section(Some(SECTION_MUSIC)).unwrap();
+    let image_section   = conf.section(Some(SECTION_IMAGE)).unwrap();
+    let fft_section     = conf.section(Some(SECTION_FFT)).unwrap();
+    let scaling_section = conf.section(Some(SECTION_SCALING)).unwrap();
 
     let wav = load_audio_file(audio_section);
     // TODO this loads the whole file into RAM. This is inefficient
     // and should be redesigned to load only the section that will be consumed
     let wav_data: Vec<Vec<i32>> = wav.iter().collect();
-    let img = create_image(image_section);
+    let mut img = create_image(image_section);
     let gradient = load_gradient_file(image_section);
     let mut index = initialize_index(audio_section, &wav, img.width() as usize);
     let mut builder = initialize_fft_builder(fft_section, audio_section, &wav);
-    let mut buffer: Vec<Vec<f32>> = vec![Vec::new(); img.width() as usize];
+    let mut buffer: Vec<Vec<f32>> = Vec::new();
+    let frequency_gradient = get_frequency_gradient(img.height(), scaling_section);
+    let mut max_amplitude = 0.0;
 
-    for x in 0..img.width() as i32 {
+    for x in 0..img.width() {
         let next_index = index.get_next_frame();
         let result = builder.process(&wav_data, next_index);
-        for y in 0..img.height() as i32 {
-            // TODO
-            // implement alternative scaling factors
+        let mut freq_iter = frequency_gradient.iter();
+        let mut x_buffer = Vec::new();
+        for y in 0..img.height() {
+            // TODO implement smoothing
+            let amplitude = result.get_frequency(*freq_iter.next().unwrap());
+            // Deal with rusts silly floats
+            if amplitude.partial_cmp(&max_amplitude) == Some(Ordering::Greater) {
+                max_amplitude = amplitude;
+            }
+            x_buffer.push(amplitude);
         }
+        buffer.push(x_buffer);
     }
 
-    // TODO identify upper limit
+    for x in 0..img.width() {
+        let x_buffer = buffer.get(x as usize).unwrap();
+        for y in 0..img.height() {
+            // TODO convert to variable scale for loaded gradient
+            let amplitude = x_buffer.get(y as usize).unwrap();
+            let index_lookup: u8 = (amplitude * 255.0 / max_amplitude) as u8;
+            img.put_pixel(x, y, image::Rgb([index_lookup, index_lookup, index_lookup]));
+        }
+    }
     // scale all values accordingly
     // plot image
 

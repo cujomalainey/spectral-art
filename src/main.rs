@@ -8,9 +8,10 @@ use rustfft::num_complex::Complex;
 use rustfft::num_traits::{Zero, One};
 use std::env;
 use std::cmp::max;
+use std::slice::Iter;
 use std::sync::Arc;
 use std::collections::HashMap;
-use wavefile::{WaveFile, WaveFileIterator};
+use wavefile::WaveFile;
 
 const SECTION_MUSIC: &str = "music";
 const MUSIC_FILE: &str = "file";
@@ -126,7 +127,7 @@ impl FFTBuilder {
     }
 
 
-    fn load_buffer(&mut self, wav_iter: &mut WaveFileIterator) {
+    fn load_buffer(&mut self, wav_iter: &mut Iter<Vec<i32>>) {
         self.buffer.clear();
         for i in 0..self.buffer_size {
             self.buffer.push(self.builder.get_sample(wav_iter));
@@ -135,14 +136,15 @@ impl FFTBuilder {
 
     fn process(
         &mut self,
-        wav_iter: &mut WaveFileIterator,
+        wav: &Vec<Vec<i32>>,
         reference_frame: usize
         ) -> FFTResult {
         let skip = max(reference_frame as i32 - (self.buffer_size as i32 / 2) - 1, 0) as usize;
+        let mut wav_iter = wav.iter();
         wav_iter.nth(skip);
         let mut result = FFTResult::new(self.interp);
         let nyquist = self.sampling_frequency / 2;
-        self.load_buffer(wav_iter);
+        self.load_buffer(&mut wav_iter);
         for i in 0..=self.decimations {
             // process fft
             let offset = (self.buffer.len() - self.fft_width) / 2;
@@ -232,7 +234,7 @@ impl SampleBuilder {
         }
     }
 
-    fn get_sample(&self, wav_iter: &mut WaveFileIterator) -> Complex<f32> {
+    fn get_sample(&self, wav_iter: &mut Iter<Vec<i32>>) -> Complex<f32> {
         let sample = wav_iter.next().unwrap();
         if self.is_mono {
             Complex::new(self.avg(&sample) as f32, 0.0)
@@ -402,6 +404,7 @@ fn main() {
     let fft_section = conf.section(Some(SECTION_FFT)).unwrap();
 
     let wav = load_audio_file(audio_section);
+    let wav_data: Vec<Vec<i32>> = wav.iter().collect();
     let img = create_image(image_section);
     let gradient = load_gradient_file(image_section);
     let mut index = initialize_index(audio_section, &wav, img.width() as usize);
@@ -409,9 +412,8 @@ fn main() {
     let mut buffer: Vec<Vec<f32>> = vec![Vec::new(); img.width() as usize];
 
     for _i in 0..img.width() as i32 {
-        let mut iter = wav.iter();
         let next_index = index.get_next_frame();
-        let result = builder.process(&mut iter, next_index);
+        let result = builder.process(&wav_data, next_index);
         for y in 0..img.height() as i32 {
             // TODO get f for each y pixel
             // insert into vec x

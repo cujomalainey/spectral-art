@@ -288,7 +288,7 @@ fn load_audio_file(audio_section: &HashMap<String, String>) -> WaveFile {
 }
 
 fn load_gradient_file(image_section: &HashMap<String, String>) -> Vec<Rgb<u8>> {
-    let mut scale: Vec<Rgb<u8>> = Vec::new();
+    let scale: Vec<Rgb<u8>> = Vec::new();
     let file = image_section.get(IMAGE_GRADIENT_FILE).unwrap();
     // TODO load gradient file
     scale
@@ -297,7 +297,7 @@ fn load_gradient_file(image_section: &HashMap<String, String>) -> Vec<Rgb<u8>> {
 fn create_image(image_section: &HashMap<String, String>) -> ImageBuffer<Rgb<u8>, Vec<u8>> {
     let img_width: u32 = image_section.get(IMAGE_WIDTH).unwrap().parse().unwrap();
     let img_height: u32 = image_section.get(IMAGE_HEIGHT).unwrap().parse().unwrap();
-    let mut imgbuf = ImageBuffer::new(img_width, img_height);
+    let imgbuf = ImageBuffer::new(img_width, img_height);
     imgbuf
 }
 

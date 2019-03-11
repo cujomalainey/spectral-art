@@ -1,5 +1,7 @@
-extern crate ini;
 extern crate image;
+extern crate ini;
+extern crate textplots;
+
 
 use ini::Ini;
 use image::{ImageBuffer, Rgb};
@@ -13,6 +15,7 @@ use std::slice::Iter;
 use std::sync::Arc;
 use std::collections::HashMap;
 use std::cmp::Ordering;
+use textplots::{Chart, Plot, Shape};
 use wavefile::WaveFile;
 
 const SECTION_MUSIC: &str = "music";
@@ -113,7 +116,7 @@ impl FFTBuilder {
         ) -> Self {
         let mut planner = FFTplanner::new(false);
         let buffer_size = width * usize::pow(2, decimations as u32);
-        FFTBuilder {
+        let result = FFTBuilder {
             fft: planner.plan_fft(width),
             builder: sample_builder,
             decimations: decimations,
@@ -125,7 +128,13 @@ impl FFTBuilder {
             output: vec![Zero::zero(); width],
             window: window_func(width),
             buffer: vec![Zero::zero(); buffer_size],
+        };
+        let mut plot = Vec::new();
+        for i in 0..result.window.len() {
+            plot.push((i as f32, *result.window.get(i).unwrap()));
         }
+        Chart::new(180, 60, 0.0, width as f32).lineplot( Shape::Lines(&plot[..])).display();
+        result
     }
 
 

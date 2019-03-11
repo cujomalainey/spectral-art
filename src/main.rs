@@ -468,7 +468,7 @@ fn main() {
         let mut x_buffer = Vec::new();
         for _y in 0..img.height() {
             // TODO implement smoothing
-            let amplitude = f32::sqrt(result.get_frequency(*freq_iter.next().unwrap()));
+            let amplitude = f32::sqrt(result.get_frequency(*freq_iter.next().unwrap()).abs());
             // Deal with rusts silly floats
             if amplitude.partial_cmp(&max_amplitude) == Some(Ordering::Greater) {
                 max_amplitude = amplitude;
@@ -478,6 +478,7 @@ fn main() {
         buffer.push(x_buffer);
     }
     println!("");
+    println!("Identified maximum as {}", max_amplitude);
 
     let mut pb = ProgressBar::new(img.width() as u64);
     pb.format("╢▌▌░╟");

@@ -150,7 +150,12 @@ impl FFTBuilder {
         for i in 0..=self.decimations {
             // process fft
             let offset = (self.buffer.len() - self.fft_width) / 2;
-            self.input.copy_from_slice(&self.buffer[offset..offset+self.fft_width]);
+            let mut temp_buffer = vec![Zero::zero(); self.fft_width];
+            temp_buffer.copy_from_slice(&self.buffer[offset..offset+self.fft_width]);
+            // apply window
+            for ((out_val, in_val), window_val) in self.input.iter_mut().zip(&temp_buffer).zip(&self.window) {
+                *out_val = in_val * window_val;
+            }
             self.fft.process(&mut self.input, &mut self.output);
             // add results
             let half_width = self.fft_width / 2;
@@ -302,13 +307,21 @@ fn create_image(image_section: &HashMap<String, String>) -> ImageBuffer<Rgb<u8>,
     imgbuf
 }
 
+// w(n) = 1
 fn window_rectangle(n: usize) -> Vec<f32> {
     vec![One::one(); n]
 }
 
-// TODO implement
+// w(n) = 1 - |(n-[{N - 1}/2])/(N/2)|
 fn window_triangular(n: usize) -> Vec<f32> {
-    vec![One::one(); n]
+    let mut buffer = Vec::new();
+    let top_const = (n as f32 - 1.0) / 2.0;
+    let bot_const = n as f32 / 2.0;
+    for i in 0..n {
+        let top = i as f32 - top_const;
+        buffer.push(1.0 - (top / bot_const).abs());
+    }
+    buffer
 }
 
 // TODO implement

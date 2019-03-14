@@ -10,6 +10,7 @@ use rustfft::{FFTplanner, FFT};
 use rustfft::num_complex::Complex;
 use rustfft::num_traits::{Zero, One};
 use std::env;
+use std::f32;
 use std::cmp::max;
 use std::slice::Iter;
 use std::sync::Arc;
@@ -375,7 +376,20 @@ fn window_blackman_nuttall(n: usize) -> Vec<f32> {
 
 // TODO implement
 fn window_blackman_harris(n: usize) -> Vec<f32> {
-    vec![One::one(); n]
+    let mut buffer = Vec::new();
+    let a0 = 0.35875;
+    let a1 = 0.48829;
+    let a2 = 0.14128;
+    let a3 = 0.01168;
+    let pi = f32::consts::PI;
+    for i in 0..n {
+        let i = i as f32;
+        let t1 = ((2.0 * pi * i) / ((n - 1) as f32)).cos();
+        let t2 = ((4.0 * pi * i) / ((n - 1) as f32)).cos();
+        let t3 = ((6.0 * pi * i) / ((n - 1) as f32)).cos();
+        buffer.push(a0 - (a1 * t1) + (a2 * t2) - (a3 * t3));
+    }
+    buffer
 }
 
 // TODO implement
@@ -468,7 +482,7 @@ fn main() {
         let mut x_buffer = Vec::new();
         for _y in 0..img.height() {
             // TODO implement smoothing
-            let amplitude = f32::sqrt(result.get_frequency(*freq_iter.next().unwrap()).abs());
+            let amplitude = f32::log2(result.get_frequency(*freq_iter.next().unwrap()).abs());
             // Deal with rusts silly floats
             if amplitude.partial_cmp(&max_amplitude) == Some(Ordering::Greater) {
                 max_amplitude = amplitude;

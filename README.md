@@ -1,2 +1,2 @@
 # spectral-art
-A python tool to turn wav files into artwork
+A rust tool to turn wav files into artwork
